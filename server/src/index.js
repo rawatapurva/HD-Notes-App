@@ -10,28 +10,44 @@ import notesRouter from "./routes/notes.js";
 dotenv.config();
 const app = express();
 
-const ORIGIN = process.env.CLIENT_ORIGIN || "*";
+// ✅ Allow both local + vercel frontend
+const allowedOrigins = [
+  "http://localhost:5173",          // Local dev (Vite default)
+  "https://hd-notes-app.vercel.app" // Your deployed frontend
+];
 
 app.use(cors({
-  origin: ORIGIN,
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps, curl)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    } else {
+      return callback(new Error("Not allowed by CORS"));
+    }
+  },
   credentials: true
 }));
+
 app.use(express.json());
 app.use(morgan("dev"));
 
-// health
+// health check
 app.get("/health", (req, res) => res.json({ ok: true }));
 
+// routes
 app.use("/auth", authRouter);
 app.use("/notes", notesRouter);
 
 const PORT = process.env.PORT || 5001;
 const MONGO_URI = process.env.MONGO_URI || "mongodb://localhost:27017/hd_notes";
 
-mongoose.connect(MONGO_URI).then(() => {
-  console.log("Connected to MongoDB");
-  app.listen(PORT, () => console.log(`Server listening on http://localhost:${PORT}`));
-}).catch(err => {
-  console.error("MongoDB connection error:", err);
-  process.exit(1);
-});
+mongoose.connect(MONGO_URI)
+  .then(() => {
+    console.log("✅ Connected to MongoDB");
+    app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+  })
+  .catch(err => {
+    console.error("❌ MongoDB connection error:", err);
+    process.exit(1);
+  });
